@@ -1,11 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title></title>
+    <title>upload</title>
   </head>
   <body>
-    <h1>home away from home</h1>
+    <h1>Upload DICOM File</h1>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".dcm" />
+      <input type="submit" value="Upload" />
+    </form>
   </body>
 </html>
