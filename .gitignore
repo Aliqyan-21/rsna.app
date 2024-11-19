@@ -1,2 +1,4 @@
 master
 __pycache__
+static/uploads
+static/images
