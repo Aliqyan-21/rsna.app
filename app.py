@@ -7,13 +7,9 @@ from PIL import Image
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "static/uploads"
-IMAGE_FOLDER = "static/images"
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
-
-if not os.path.exists(IMAGE_FOLDER):
-    os.makedirs(IMAGE_FOLDER)
 
 @app.route('/')
 def home():
@@ -47,13 +43,15 @@ def upload_dic():
 
         img = Image.fromarray(img)
 
-        img_file = f"{file.filename}.png"
-        img_path = os.path.join(IMAGE_FOLDER, img_file)
-        img.save(img_path)
+        # img_file = f"{file.filename}.png"
+        # img_path = os.path.join(IMAGE_FOLDER, img_file)
+        # img.save(img_path)
 
-        return render_template('image.html', img_url=img_path)
+    # placeholders we need to send the image to the model for prediction later when we have the model
+        return "done"
     else:
-        return "<h3>Not a dcm image</h3>"
+        return "file not found"
+
 
 if __name__ == "__main__":
     app.run(debug=True)
