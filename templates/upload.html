@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+  <head>
+    <title>upload</title>
+  </head>
+  <body>
+    <h1>Upload DICOM File</h1>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".dcm" />
+      <input type="submit" value="Upload" />
+    </form>
+  </body>
+</html>
