@@ -12,6 +12,10 @@ if not os.path.exists(UPLOAD_FOLDER):
 def home():
     return render_template("home.html")
 
+@app.route('/dcm_upload')
+def dcm_upload():
+    return render_template("upload.html")
+
 @app.route('/upload', methods=["POST"])
 def upload_dic():
     if 'file' not in request.files:
