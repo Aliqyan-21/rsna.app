@@ -1,13 +1,71 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>upload</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumbar Spine Detection</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/home.css') }}"
+    />
   </head>
   <body>
-    <h1>Upload DICOM File</h1>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".dcm" />
-      <input type="submit" value="Upload" />
-    </form>
+    <header>
+      <nav class="navbar">
+        <div class="logo">LumbarScan</div>
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-content">
+        <h1>AI-Powered Lumbar Spine Degeneration Detection</h1>
+        <p>
+          Accurately classify MRI images into normal, mild, moderate, or severe
+          conditions.
+        </p>
+        <a href="#features" class="btn">Learn More</a>
+      </div>
+    </section>
+
+    <section id="about" class="about-section">
+      <h2>About LumbarScan</h2>
+      <p>
+        LumbarScan is an AI-driven solution designed for medical professionals.
+        It uses advanced deep learning techniques to assist in diagnosing lumbar
+        spine conditions with high accuracy.
+      </p>
+    </section>
+
+    <section id="features" class="features-section">
+      <h2>Features</h2>
+      <div class="features-container">
+        <div class="feature">
+          <h3>Accurate MRI Analysis</h3>
+          <p>
+            Leverages a trained deep learning model to classify MRI images into
+            four categories.
+          </p>
+        </div>
+        <div class="feature">
+          <h3>Professional Insights</h3>
+          <p>
+            Detailed analysis to assist doctors in making informed decisions.
+          </p>
+        </div>
+        <div class="feature">
+          <h3>Seamless Integration</h3>
+          <p>Compatible with existing medical systems for easy integration.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>&copy; That's what she said</p>
+    </footer>
   </body>
 </html>
