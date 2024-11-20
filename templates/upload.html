@@ -1,13 +1,29 @@
-<!doctype html>
-<html>
-  <head>
-    <title>upload</title>
-  </head>
-  <body>
+{% extends "base.html" %}
+
+{% block title %} Upload dcm {% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}" />
+{% endblock %}
+
+{% block content %}
+<section class="upload-section" id="upload">
+  <div class="upload-container">
     <h1>Upload DICOM File</h1>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".dcm" />
-      <input type="submit" value="Upload" />
+    <p>
+    Submit your DICOM file for analysis. Ensure the file is in `.dcm`
+    format.
+    </p>
+    <form
+        method="POST"
+        action="/upload"
+        enctype="multipart/form-data"
+        class="upload-form"
+        >
+        <input type="file" name="file" accept=".dcm" required />
+        <button type="submit" class="btn">Upload</button>
     </form>
-  </body>
-</html>
+  </div>
+</section>
+{% endblock %}
