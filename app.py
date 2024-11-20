@@ -48,7 +48,7 @@ def upload_dic():
         # img.save(img_path)
 
     # placeholders we need to send the image to the model for prediction later when we have the model
-        return "done"
+        return "saved"
     else:
         return "file not found"
 
