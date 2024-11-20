@@ -3,6 +3,7 @@ import os
 import pydicom
 import numpy as np
 from PIL import Image
+import torch
 
 app = Flask(__name__)
 
@@ -10,6 +11,10 @@ UPLOAD_FOLDER = "static/uploads"
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+model_path = "models/model.pth"
+model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device('cpu')))
+model.eval()
 
 @app.route('/')
 def home():
@@ -32,8 +37,8 @@ def upload_dic():
     if file:
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
+
         ds = pydicom.dcmread(filepath)
-        
         img = ds.pixel_array.astype(float)
 
         img -= np.min(img)
@@ -41,13 +46,21 @@ def upload_dic():
         
         img = (img*255).astype(np.uint8)
 
-        img = Image.fromarray(img)
+        #apply preprocessing here...
+        #...
+        #...
+        #...
+
+        #predict outcome here...
+        #...
+        #...
+        #...
 
         # img_file = f"{file.filename}.png"
         # img_path = os.path.join(IMAGE_FOLDER, img_file)
         # img.save(img_path)
 
-    # placeholders we need to send the image to the model for prediction later when we have the model
+    # placeholders we need to send the predictions to the prediction webpage for showing prediction later when we have the predictions
         return "saved"
     else:
         return "file not found"
