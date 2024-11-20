@@ -1,26 +1,13 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lumbar Spine Detection</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/home.css') }}"
-    />
-  </head>
-  <body>
-    <header>
-      <nav class="navbar">
-        <div class="logo">LumbarScan</div>
-        <ul>
-          <li><a href="#about">About</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#contact">Contact</a></li>
-        </ul>
-      </nav>
-    </header>
+{% extends "base.html" %}
 
+{% block title %} LumbarScan {% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}" />
+{% endblock %}
+
+{% block content %} 
     <section class="hero">
       <div class="hero-content">
         <h1>AI-Powered Lumbar Spine Degeneration Detection</h1>
@@ -63,9 +50,4 @@
         </div>
       </div>
     </section>
-
-    <footer>
-      <p>&copy; That's what she said</p>
-    </footer>
-  </body>
-</html>
+{% endblock %}
