@@ -2,3 +2,5 @@ flask
 pydicom
 numpy
 pillow
+torch
+torchvision
