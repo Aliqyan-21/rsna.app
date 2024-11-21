@@ -60,16 +60,20 @@ def dcm_upload():
     return render_template("upload.html")
 
 @app.route('/upload', methods=["POST"])
-def upload_dic():
-    if 'file' not in request.files:
-        return "No file uploaded"
+def upload_dcms():
+    if 'files' not in request.files:
+        return "No files uploaded"
 
-    file = request.files['file']
+    files = request.files.getlist('files')
 
-    if not file.filename:
-        return "No file selected"
+    if not files:
+        return "No files selected"
 
-    if file:
+    for file in files:
+        # Ensure filename is not empty or None
+        if not file.filename:
+            return "File name is empty or invalid"
+
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
 
@@ -78,22 +82,14 @@ def upload_dic():
 
         img -= np.min(img)
         img /= np.max(img)
-        
+
         img = (img*255).astype(np.uint8)
 
-        #apply preprocessing here...
-        #...
-        #...
-        #...
+        # Apply preprocessing here...
+        # ...
 
-        #predict outcome here...
-        #...
-        #...
-        #...
-
-        # img_file = f"{file.filename}.png"
-        # img_path = os.path.join(IMAGE_FOLDER, img_file)
-        # img.save(img_path)
+        # Predict outcome here...
+        # ...
 
     # placeholders we need to send the predictions to the prediction webpage for showing prediction later when we have the predictions
         return "saved"
