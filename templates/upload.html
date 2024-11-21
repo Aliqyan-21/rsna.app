@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %} Upload dcm {% endblock %}
+{% block title %} Upload dcm files {% endblock %}
 
 {% block style %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}" />
@@ -10,10 +10,10 @@
 {% block content %}
 <section class="upload-section" id="upload">
   <div class="upload-container">
-    <h1>Upload DICOM File</h1>
+    <h1>Upload The DICOM Files</h1>
     <p>
-    Submit your DICOM file for analysis. Ensure the file is in `.dcm`
-    format.
+      Submit your DICOM files for analysis. Ensure the files are in `.dcm`
+      format.
     </p>
     <form
         method="POST"
@@ -21,7 +21,7 @@
         enctype="multipart/form-data"
         class="upload-form"
         >
-        <input type="file" name="file" accept=".dcm" required />
+        <input type="file" name="files" accept=".dcm" multiple required />
         <button type="submit" class="btn">Upload</button>
     </form>
   </div>
