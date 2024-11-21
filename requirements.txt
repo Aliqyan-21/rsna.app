@@ -1,6 +1,8 @@
 flask
 pydicom
 numpy
+matplotlib
+tqdm
 pillow
 torch
 torchvision

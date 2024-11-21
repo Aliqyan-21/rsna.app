@@ -13,17 +13,19 @@ UPLOAD_FOLDER = "static/uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# this class is architecture of the model -> dekh lo ye same hi architecture hona chahiye jaisa notebook me hai
 class SimpleCNN(nn.Module):
     def __init__(self, coord_size=None):
         super(SimpleCNN, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        
         self.pool = nn.MaxPool2d(2, 2)
         self.relu = nn.ReLU()
+
         self.flattened_size = 128 * 39 * 39
         self.coord_size = coord_size if coord_size is not None else 0
+        
         self.fc1_with_coords = nn.Linear(self.flattened_size + self.coord_size, 256)
         self.fc1_without_coords = nn.Linear(self.flattened_size, 256)
         self.fc2 = nn.Linear(256, 3)
@@ -32,16 +34,20 @@ class SimpleCNN(nn.Module):
         x = self.pool(self.relu(self.conv1(x)))
         x = self.pool(self.relu(self.conv2(x)))
         x = self.pool(self.relu(self.conv3(x)))
+
         x = x.view(x.size(0), -1)  # Flatten
+
         if coords is not None:
-            x = torch.cat((x, coords), dim=1)
+            x = torch.cat((x, coords), dim=1)  # Concatenate with coordinates
             x = self.relu(self.fc1_with_coords(x))
         else:
             x = self.relu(self.fc1_without_coords(x))
-        return self.fc2(x)
+
+        x = self.fc2(x)
+        return x
 
 model_path = "models/model.pth"
-model = SimpleCNN(coord_size=10) # it is 10 make it according to trained model
+model = SimpleCNN(coord_size=2)
 model.load_state_dict(torch.load(model_path, map_location='cpu'))
 model.eval()
 
