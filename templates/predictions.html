@@ -1,0 +1,34 @@
+{% block title %} Behold {% endblock %} 
+
+{% block style %} 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/predictions.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Prediction Results</h1>
+  <table class="prediction-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Normal/Mild Probability</th>
+        <th>Moderate Probability</th>
+        <th>Severe Probability</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for prediction in predictions %}
+      <tr>
+        <td>{{ prediction.file }}</td>
+        <td>{{ prediction.normal_mild }}</td>
+        <td>{{ prediction.moderate }}</td>
+        <td>{{ prediction.severe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <br />
+  <a href="/" class="back-link">Upload More Files</a>
+</div>
+{% endblock %}
