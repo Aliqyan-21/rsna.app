@@ -53,7 +53,7 @@ model = SimpleCNN(coord_size=2)
 model.load_state_dict(torch.load(model_path, map_location='cpu'))
 model.eval()
 
-# Image transformation
+# transformation
 transform = transforms.Compose([
     transforms.Grayscale(num_output_channels=1),
     transforms.Resize((312,312)),
