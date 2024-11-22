@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import os
 import pydicom
 import numpy as np
 from PIL import Image
 import torch.nn as nn
 import torch
+from torchvision import transforms
 
 app = Flask(__name__)
 
@@ -13,6 +14,7 @@ UPLOAD_FOLDER = "static/uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+# Model setup
 class SimpleCNN(nn.Module):
     def __init__(self, coord_size=None):
         super(SimpleCNN, self).__init__()
@@ -85,16 +87,32 @@ def upload_dcms():
 
         img = (img*255).astype(np.uint8)
 
-        # Apply preprocessing here...
-        # ...
+        # Apply transformations
+        img_tensor = transforms(img)
+        img_tensor = img_tensor.unsqueeze(0)
 
-        # Predict outcome here...
-        # ...
+        # Predict using model
+        with torch.no_gard():
+            outputs = model(img_tensor)
+            probs = torch.softmax(outputs, dim=1)
 
-    # placeholders we need to send the predictions to the prediction webpage for showing prediction later when we have the predictions
-        return "saved"
-    else:
-        return "file not found"
+
+        # Store probabilities for each classes
+        normal_mild_prob = probs[0,0].item()
+        moderate_prob = probs[0,1].item()
+        severe_prob = probs[0,2].item()
+
+        all_predictions = []
+        
+        all_predictions.append({
+            "file": file.filename,
+            "normal_mild": normal_mild_prob,
+            "moderate": moderate_prob,
+            "severe": severe_prob
+        })
+
+    # Return predictions to a new template 
+    return render_template("predictions.html",predictions=all_predictions)
 
 
 if __name__ == "__main__":
