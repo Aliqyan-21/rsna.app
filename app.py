@@ -53,6 +53,14 @@ model = SimpleCNN(coord_size=2)
 model.load_state_dict(torch.load(model_path, map_location='cpu'))
 model.eval()
 
+# transformation
+transform = transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),
+    transforms.Resize((312,312)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
 @app.route('/')
 def home():
     return render_template("home.html")
@@ -88,11 +96,11 @@ def upload_dcms():
         img = (img*255).astype(np.uint8)
 
         # Apply transformations
-        img_tensor = transforms(img)
+        img_tensor = transform(img)
         img_tensor = img_tensor.unsqueeze(0)
 
         # Predict using model
-        with torch.no_gard():
+        with torch.no_grad():
             outputs = model(img_tensor)
             probs = torch.softmax(outputs, dim=1)
 
