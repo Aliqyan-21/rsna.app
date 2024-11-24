@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request
 import os
 import pydicom
 import numpy as np
@@ -37,10 +37,10 @@ class SimpleCNN(nn.Module):
         x = self.pool(self.relu(self.conv2(x)))
         x = self.pool(self.relu(self.conv3(x)))
 
-        x = x.view(x.size(0), -1)  # Flatten
+        x = x.view(x.size(0), -1)
 
         if coords is not None:
-            x = torch.cat((x, coords), dim=1)  # Concatenate with coordinates
+            x = torch.cat((x, coords), dim=1)  
             x = self.relu(self.fc1_with_coords(x))
         else:
             x = self.relu(self.fc1_without_coords(x))
@@ -52,6 +52,8 @@ model_path = "models/model.pth"
 model = SimpleCNN(coord_size=2)
 model.load_state_dict(torch.load(model_path, map_location='cpu'))
 model.eval()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 
 # transformation
 transform = transforms.Compose([
@@ -75,12 +77,12 @@ def upload_dcms():
         return "No files uploaded"
 
     files = request.files.getlist('files')
-
+    all_predictions = []
+    
     if not files:
         return "No files selected"
 
     for file in files:
-        # Ensure filename is not empty or None
         if not file.filename:
             return "File name is empty or invalid"
 
@@ -88,40 +90,28 @@ def upload_dcms():
         file.save(filepath)
 
         ds = pydicom.dcmread(filepath)
-        img = ds.pixel_array.astype(float)
+        img_data = ds.pixel_array
+        img = Image.fromarray(img_data.astype(np.uint8))
 
-        img -= np.min(img)
-        img /= np.max(img)
+        img_tensor = transform(img).unsqueeze(0).to(device)
 
-        img = (img*255).astype(np.uint8)
-
-        # Apply transformations
-        img_tensor = transform(img)
-        img_tensor = img_tensor.unsqueeze(0)
-
-        # Predict using model
+        # predicting the classes
         with torch.no_grad():
-            outputs = model(img_tensor)
+            outputs = model(img_tensor)  
             probs = torch.softmax(outputs, dim=1)
 
+            normal_mild_prob = probs[0,0].item()
+            moderate_prob = probs[0,1].item()
+            severe_prob = probs[0,2].item()
 
-        # Store probabilities for each classes
-        normal_mild_prob = probs[0,0].item()
-        moderate_prob = probs[0,1].item()
-        severe_prob = probs[0,2].item()
-
-        all_predictions = []
+            all_predictions.append({
+                "file": file.filename,
+                "normal_mild": normal_mild_prob,
+                "moderate": moderate_prob,
+                "severe": severe_prob
+            })
         
-        all_predictions.append({
-            "file": file.filename,
-            "normal_mild": normal_mild_prob,
-            "moderate": moderate_prob,
-            "severe": severe_prob
-        })
-
-    # Return predictions to a new template 
-    return render_template("predictions.html",predictions=all_predictions)
-
+    return render_template("predictions.html", predictions=all_predictions)
 
 if __name__ == "__main__":
     app.run(debug=True)
