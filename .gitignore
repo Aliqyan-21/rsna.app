@@ -1,8 +1,14 @@
 master
 __pycache__
+models/
 static/uploads
 static/images
 models/model.pth
 main.py
 10.dcm
 rsna
+test_images
+1.dcm
+2.dcm
+3.dcm
+ref_images
