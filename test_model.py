@@ -1,124 +1,159 @@
+import os
+import glob
 import torch
+import timm
+import numpy as np
 import pydicom
 from PIL import Image
-import numpy as np
+from collections import defaultdict
 from torchvision import transforms
-from torch.utils.data import DataLoader, Dataset
+from ultralytics import YOLO
 from tqdm import tqdm
-import torch.nn as nn
+from typing import Dict, List, Union
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Device setup
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# SimpleCNN class similiar to baseline model
-class SimpleCNN(nn.Module):
-    def __init__(self, coord_size=None):
-        super(SimpleCNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        
-        self.pool = nn.MaxPool2d(2, 2)
-        self.relu = nn.ReLU()
+# Paths setup (updated from second.py)
+YOLO_PT_AXIAL_T2_PATH = "models/axialY/best.pt"  # YOLO model path
+SIAMESE_AXIAL_T2_REFIMG_ROOT_DIR = "ref_images/"  # Reference images root
+SIAMESE_AXIAL_T2_PT_LIST = sorted(glob.glob("models/axial/*.pth"))  # Siamese models
 
-        self.flattened_size = 128 * 39 * 39
-        self.coord_size = coord_size if coord_size is not None else 0
-        
-        self.fc1_with_coords = nn.Linear(self.flattened_size + self.coord_size, 256)
-        self.fc1_without_coords = nn.Linear(self.flattened_size, 256)
-        self.fc2 = nn.Linear(256, 3)
+LEVELS = ['l1_l2', 'l2_l3', 'l3_l4', 'l4_l5', 'l5_s1']
+CLASSES = ['Normal_Mild', 'Moderate', 'Severe']
 
-    def forward(self, x, coords=None):
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = self.pool(self.relu(self.conv3(x)))
+# YOLO confidence threshold
+CONFIDENCE_THRESHOLD = 0.5
 
-        x = x.view(x.size(0), -1)  
+# Load YOLO model for detection
+detector = YOLO(YOLO_PT_AXIAL_T2_PATH)
 
-        if coords is not None:
-            x = torch.cat((x, coords), dim=1)  
-            x = self.relu(self.fc1_with_coords(x))
-        else:
-            x = self.relu(self.fc1_without_coords(x))
-
-        x = self.fc2(x)
-        return x
-
-# model loading
-model = SimpleCNN(coord_size=2)
-state_dict = torch.load('models/model.pth', map_location="cpu")
-model.load_state_dict(state_dict)
-model.eval()
-
-# similar to DataLoader usage in notebook
-class DICOMDataset(Dataset):
-    def __init__(self, dicom_paths, coords=None, transform=None):
-        self.dicom_paths = dicom_paths
-        self.coords = coords
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.dicom_paths)
-
-    def __getitem__(self, idx):
-        dicom_path = self.dicom_paths[idx]
-        image = self.load_dicom_image(dicom_path)
-        
-        if self.transform:
-            image = self.transform(image)
-        
-        if self.coords is not None:
-            return image, self.coords
-        else:
-            return image, None
-
-    def load_dicom_image(self, dcm_path):
-        dicom_data = pydicom.dcmread(dcm_path)
-        image_data = dicom_data.pixel_array
-        image = Image.fromarray(image_data.astype(np.uint8))
-        return image
-
-# dicom images transforming (preprocessing)
+# Transformations for images
 transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=1),
-    transforms.Resize((312, 312)),
+    transforms.Resize((224, 224)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# array of dicom images
-dicom_paths = ["10.dcm"]  
+def convert_dicom_to_image(dcm_path: str) -> np.ndarray:
+    """Convert DICOM file to normalized RGB image."""
+    try:
+        dicom = pydicom.dcmread(dcm_path)
+        arr = dicom.pixel_array.astype(float)
+        arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr)) * 255.0
+        if len(arr.shape) == 2:  # Grayscale to RGB
+            arr = np.stack([arr] * 3, axis=-1)
+        return arr.astype(np.uint8)
+    except Exception as e:
+        print(f"Error reading DICOM file {dcm_path}: {e}")
+        return np.zeros((224, 224, 3), dtype=np.uint8)
 
-# Dicom dataset and DataLoader
-dataset = DICOMDataset(dicom_paths, coords=torch.tensor([1.0, 2.0]), transform=transform)
-testloader = DataLoader(dataset, batch_size=1, shuffle=False)
+def load_reference_images(root_dir: str, transform: transforms.Compose, device: torch.device, num_ref_images=40) -> Dict[str, List[torch.Tensor]]:
+    """Load and preprocess reference images."""
+    ref_images_per_class = defaultdict(list)
+    for level in sorted(os.listdir(root_dir)):
+        level_path = os.path.join(root_dir, level)
+        if not os.path.isdir(level_path):
+            continue
+        for cls in sorted(os.listdir(level_path)):
+            class_path = os.path.join(level_path, cls)
+            if not os.path.isdir(class_path):
+                continue
+            image_paths = glob.glob(os.path.join(class_path, "*.png"))[:num_ref_images]
+            images = [transform(Image.open(img).convert("RGB")).to(device) for img in image_paths]
+            ref_images_per_class[f"{level}/{cls}"] = images
+    return ref_images_per_class
 
-# predicions done like this
-def predict_test_data(testloader):
-    normal_mild_probs = []
-    moderate_probs = []
-    severe_probs = []
-    predictions = []
-    
-    model.eval()  
-    
-    with torch.no_grad():  
-        for images, coords in tqdm(testloader):
-            images = images.to(device)
-            
-            outputs = model(images, coords) if coords is not None else model(images, None)
-            
-            probs = torch.softmax(outputs, dim=1)
-            
-            # storing each class confidence/probabilities
-            normal_mild_probs.append(probs[0, 0].item())
-            moderate_probs.append(probs[0, 1].item())
-            severe_probs.append(probs[0, 2].item())
-            predictions.append(probs)
+class SiameseNetwork(torch.nn.Module):
+    def __init__(self, model_name: str = 'resnet18', pretrained: bool = True):
+        super(SiameseNetwork, self).__init__()
+        self.backbone = timm.create_model(model_name, pretrained=pretrained)
+        if hasattr(self.backbone, 'fc'):
+            self.backbone.fc = torch.nn.Identity()
+        elif hasattr(self.backbone, 'classifier'):
+            self.backbone.classifier = torch.nn.Identity()
+        self.similarity = torch.nn.CosineSimilarity(dim=1)
+        self.class_embeddings: Union[Dict[str, torch.Tensor], None] = None
 
-    return normal_mild_probs, moderate_probs, severe_probs, predictions
+    def forward_once(self, x: torch.Tensor) -> torch.Tensor:
+        return self.backbone(x)
 
-# fingers crossed
-normal_mild_probs, moderate_probs, severe_probs, predictions = predict_test_data(testloader)
-print(f"Normal/Mild Probabilities: {normal_mild_probs}")
-print(f"Moderate Probabilities: {moderate_probs}")
-print(f"Severe Probabilities: {severe_probs}")
+    def precompute_class_embeddings(self, reference_images: Dict[str, List[torch.Tensor]]):
+        self.class_embeddings = {}
+        for class_label, images in reference_images.items():
+            with torch.no_grad():
+                embeddings = [self.forward_once(img.unsqueeze(0)) for img in images]
+                self.class_embeddings[class_label] = torch.stack(embeddings)
+
+    def forward(self, img1, img2=None):
+        if img2 is not None:
+            embedding1 = self.forward_once(img1)
+            embedding2 = self.forward_once(img2)
+            return self.similarity(embedding1, embedding2)
+        else:
+            embedding1 = self.forward_once(img1)
+            similarities = {}
+            for class_label, embeddings in self.class_embeddings.items():
+                similarities[class_label] = self.similarity(
+                    embedding1.unsqueeze(1), embeddings
+                ).mean(dim=1)
+            return similarities
+
+def siamese_base_inference(model: SiameseNetwork, test_image_tensor: torch.Tensor, confidence_threshold: float = 0.5):
+    with torch.no_grad():
+        class_scores = model(test_image_tensor)
+    probabilities = {cls: torch.mean(scores).item() for cls, scores in class_scores.items()}
+    total = sum(probabilities.values())
+    normalized_probs = {cls: prob / total for cls, prob in probabilities.items()}
+
+    max_prob = max(normalized_probs.values())
+    if max_prob < confidence_threshold:
+        return "Uncertain"
+    return normalized_probs
+
+def load_siamese_models(pt_path_list: list) -> Dict[str, List[SiameseNetwork]]:
+    reference_images = load_reference_images(
+        SIAMESE_AXIAL_T2_REFIMG_ROOT_DIR, transform, DEVICE
+    )
+    models_by_level = defaultdict(list)
+    for pt_path in tqdm(pt_path_list, desc="Loading Siamese Models"):
+        model = SiameseNetwork(pretrained=False)
+        model.load_state_dict(torch.load(pt_path, map_location=DEVICE))
+        model.eval().to(DEVICE)
+        model.precompute_class_embeddings(reference_images)
+        level = "_".join(os.path.basename(pt_path).split("_")[:2])
+        models_by_level[level].append(model)
+    return models_by_level
+
+dcm_files = [
+"test_image/mild/1.dcm",
+"test_image/mild/2.dcm",
+"test_image/mild/3.dcm",
+"test_image/mild/4.dcm",
+"test_image/mild/5.dcm",
+"test_image/moderate/1.dcm",
+"test_image/moderate/2.dcm",
+"test_image/moderate/3.dcm",
+"test_image/moderate/4.dcm",
+"test_image/moderate/5.dcm",
+"test_image/severe/1.dcm",
+"test_image/severe/2.dcm",
+"test_image/severe/3.dcm",
+"test_image/severe/4.dcm",
+"test_image/severe/5.dcm",
+]
+siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
+
+for dcm_file in dcm_files:
+    print(f"Processing {dcm_file}...")
+    dicom_image = convert_dicom_to_image(dcm_file)
+    dicom_tensor = transform(Image.fromarray(dicom_image)).unsqueeze(0).to(DEVICE)
+
+    combined_probabilities = defaultdict(list)
+    for model in siamese_models["l1_l2"]:  # Replace with relevant level
+        probabilities = siamese_base_inference(model, dicom_tensor)
+        for cls, prob in probabilities.items():
+            combined_probabilities[cls].append(prob)
+
+    final_probs = {cls: np.mean(probs) for cls, probs in combined_probabilities.items()}
+    print(f"Predicted Class for {dcm_file}: {max(final_probs, key=final_probs.get)}")
