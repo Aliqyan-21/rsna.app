@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+
 {% block title %} Behold {% endblock %} 
 
 {% block style %} 
@@ -7,14 +9,14 @@
 
 {% block content %}
 <div class="container">
-  <h1 class="page-title">Prediction Results</h1>
+  <h1 class="page-title">Results</h1>
   <table class="prediction-table">
     <thead>
       <tr>
         <th>File</th>
-        <th>Normal/Mild Probability</th>
-        <th>Moderate Probability</th>
-        <th>Severe Probability</th>
+        <th>Normal/Mild</th>
+        <th>Moderate</th>
+        <th>Severe</th>
       </tr>
     </thead>
     <tbody>
@@ -29,6 +31,6 @@
     </tbody>
   </table>
   <br />
-  <a href="/" class="back-link">Upload More Files</a>
+  <a href="/dcm_upload" class="back-link">Upload More Files</a>
 </div>
 {% endblock %}
