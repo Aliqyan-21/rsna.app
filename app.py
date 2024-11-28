@@ -1,67 +1,35 @@
 from flask import Flask, render_template, request
 import os
-import pydicom
-import numpy as np
-from PIL import Image
-import torch.nn as nn
 import torch
-from torchvision import transforms
+from PIL import Image
+from werkzeug.utils import secure_filename
+import uuid
+import logging
+from ultralytics import YOLO
+from model_utils import (
+    convert_dicom_to_image,
+    transform,
+    extract_patch_with_yolo,
+    siamese_base_inference,
+    load_siamese_models,
+)
+import glob
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "static/uploads"
-
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Model setup
-class SimpleCNN(nn.Module):
-    def __init__(self, coord_size=None):
-        super(SimpleCNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        
-        self.pool = nn.MaxPool2d(2, 2)
-        self.relu = nn.ReLU()
+logging.basicConfig(level=logging.INFO)
 
-        self.flattened_size = 128 * 39 * 39
-        self.coord_size = coord_size if coord_size is not None else 0
-        
-        self.fc1_with_coords = nn.Linear(self.flattened_size + self.coord_size, 256)
-        self.fc1_without_coords = nn.Linear(self.flattened_size, 256)
-        self.fc2 = nn.Linear(256, 3)
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def forward(self, x, coords=None):
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = self.pool(self.relu(self.conv3(x)))
+YOLO_PT_AXIAL_T2_PATH = "models/axialY/best.pt"
+detector = YOLO(YOLO_PT_AXIAL_T2_PATH)
 
-        x = x.view(x.size(0), -1)
-
-        if coords is not None:
-            x = torch.cat((x, coords), dim=1)  
-            x = self.relu(self.fc1_with_coords(x))
-        else:
-            x = self.relu(self.fc1_without_coords(x))
-
-        x = self.fc2(x)
-        return x
-
-model_path = "models/model.pth"
-model = SimpleCNN(coord_size=2)
-model.load_state_dict(torch.load(model_path, map_location='cpu'))
-model.eval()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
-
-# transformation
-transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=1),
-    transforms.Resize((312,312)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])
-])
+SIAMESE_AXIAL_T2_PT_LIST = sorted(glob.glob("models/axial/*.pth"))
+siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
 
 @app.route('/')
 def home():
@@ -78,7 +46,7 @@ def upload_dcms():
 
     files = request.files.getlist('files')
     all_predictions = []
-    
+
     if not files:
         return "No files selected"
 
@@ -86,31 +54,63 @@ def upload_dcms():
         if not file.filename:
             return "File name is empty or invalid"
 
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        # Secure filename and save the file
+        filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
-        ds = pydicom.dcmread(filepath)
-        img_data = ds.pixel_array
-        img = Image.fromarray(img_data.astype(np.uint8))
+        logging.info(f"Processing file: {file.filename}")
 
-        img_tensor = transform(img).unsqueeze(0).to(device)
+        # Preprocess the DICOM file
+        image = convert_dicom_to_image(filepath)
+        if image is None:
+            logging.warning(f"Failed to convert {file.filename} to image")
+            all_predictions.append({"file": file.filename, "error": "Failed to process DICOM file."})
+            continue
 
-        # predicting the classes
-        with torch.no_grad():
-            outputs = model(img_tensor)  
-            probs = torch.softmax(outputs, dim=1)
+        # YOLO detection
+        patches = extract_patch_with_yolo(image, detector)
+        logging.info(f"Detected {len(patches)} patches for {file.filename}")
+        if not patches:
+            all_predictions.append({"file": file.filename, "error": "No patches detected."})
+            continue
 
-            normal_mild_prob = probs[0,0].item()
-            moderate_prob = probs[0,1].item()
-            severe_prob = probs[0,2].item()
+        # Siamese model predictions
+        predictions = {"Normal_Mild": 0.0, "Moderate": 0.0, "Severe": 0.0}
+        total_patches = 0
 
-            all_predictions.append({
-                "file": file.filename,
-                "normal_mild": normal_mild_prob,
-                "moderate": moderate_prob,
-                "severe": severe_prob
-            })
-        
+        for patch in patches:
+            patch = Image.fromarray(patch)
+            patch_tensor = transform(patch).unsqueeze(0).to(DEVICE)
+
+            for _, models in siamese_models.items():
+                for model in models:
+                    probs = siamese_base_inference(model, patch_tensor)
+                    
+                    logging.info(f"Prediction for {file.filename} (patch): {probs}")
+                    
+                    if isinstance(probs, str) and probs == "Uncertain":
+                        continue  # Skip this patch if uncertain
+                    for cls, prob in probs.items():
+                        predictions[cls] += prob
+
+            total_patches += 1
+
+        # If valid patches were processed, average predictions
+        if total_patches > 0:
+            predictions = {cls: round(prob / total_patches, 4) for cls, prob in predictions.items()}
+            logging.info(f"Final predictions for {file.filename}: {predictions}")
+        else:
+            all_predictions.append({"file": file.filename, "error": "No valid patches processed."})
+            continue
+
+        all_predictions.append({
+            "file": file.filename,
+            "normal_mild": predictions["Normal_Mild"],
+            "moderate": predictions["Moderate"],
+            "severe": predictions["Severe"]
+        })
+
     return render_template("predictions.html", predictions=all_predictions)
 
 if __name__ == "__main__":
