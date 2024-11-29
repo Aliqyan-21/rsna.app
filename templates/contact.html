@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Contact{% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/contact.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="page-title">Contact Us</h1>
+    <p>Feel free to reach out to any of the devs.</p>
+
+    <div class="team-section">
+        <div class="team-member">
+            <img src="{{ url_for('static', filename='assets/profile_pics/aliqyan.png') }}" alt="Aliqyan" class="team-photo">
+            <h2>Aliqyan</h2>
+            <p>PM & Backend Developer</p>
+            <p><a class="e-link" href="mailto:aliqyanabid21@gmail.com">aliqyanabid21@gmail.com</a></p>
+        </div>
+
+        <div class="team-member">
+            <img src="{{ url_for('static', filename='assets/profile_pics/abc.png') }}" alt="abc" class="team-photo">
+            <h2>abc</h2>
+            <p>Backend Developer</p>
+            <p><a class="e-link" href="mailto:johndoe@example.com">abc@gmail.com</a></p>
+        </div>
+
+        <div class="team-member">
+            <img src="{{ url_for('static', filename='assets/profile_pics/xyz.png') }}" alt="xyz" class="team-photo">
+            <h2>xyz</h2>
+            <p>Frontend Designer</p>
+            <p><a class="e-link" href="mailto:janesmith@example.com">xyz@gmail.com</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
