@@ -29,11 +29,15 @@ YOLO_PT_AXIAL_T2_PATH = "models/axialY/best.pt"
 detector = YOLO(YOLO_PT_AXIAL_T2_PATH)
 
 SIAMESE_AXIAL_T2_PT_LIST = sorted(glob.glob("models/axial/*.pth"))
-siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
+# siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
 
 @app.route('/')
 def home():
     return render_template("home.html")
+
+@app.route('/contact')
+def contact():
+    return render_template("contact.html")
 
 @app.route('/dcm_upload')
 def dcm_upload():
