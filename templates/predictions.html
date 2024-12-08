@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %} Behold {% endblock %} 
+{% block title %} Results {% endblock %} 
 
 {% block style %} 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -17,6 +17,7 @@
         <th>Normal/Mild</th>
         <th>Moderate</th>
         <th>Severe</th>
+        <th>Patches</th>
       </tr>
     </thead>
     <tbody>
@@ -26,6 +27,17 @@
         <td>{{ prediction.normal_mild }}</td>
         <td>{{ prediction.moderate }}</td>
         <td>{{ prediction.severe }}</td>
+        <td>
+          {% if prediction.patches %}
+            <div class="patch-container">
+              {% for patch in prediction.patches %}
+              <img src="{{ url_for('static', filename=patch[7:]) }}" class="patch-img" alt="Patch">
+              {% endfor %}
+            </div>
+          {% else %}
+            No patches available
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

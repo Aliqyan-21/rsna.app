@@ -56,3 +56,17 @@
   text-align: center;
   padding: 20px;
 }
+
+.patch-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.patch-img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
