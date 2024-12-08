@@ -2,6 +2,7 @@ master
 __pycache__
 models/
 static/uploads
+static/patches
 static/images
 models/model.pth
 main.py

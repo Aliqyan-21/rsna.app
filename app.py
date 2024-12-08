@@ -29,7 +29,7 @@ YOLO_PT_AXIAL_T2_PATH = "models/axialY/best.pt"
 detector = YOLO(YOLO_PT_AXIAL_T2_PATH)
 
 SIAMESE_AXIAL_T2_PT_LIST = sorted(glob.glob("models/axial/*.pth"))
-# siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
+siamese_models = load_siamese_models(SIAMESE_AXIAL_T2_PT_LIST)
 
 @app.route('/')
 def home():
@@ -59,7 +59,8 @@ def upload_dcms():
             return "File name is empty or invalid"
 
         # Secure filename and save the file
-        filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
+        original_filename = secure_filename(file.filename)
+        filename = f"{original_filename}"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
@@ -79,20 +80,29 @@ def upload_dcms():
             all_predictions.append({"file": file.filename, "error": "No patches detected."})
             continue
 
+        # Save patches in a folder named after the DICOM filename (without extension)
+        dicom_name = os.path.splitext(original_filename)[0]  # Remove extension
+        patch_folder = os.path.join("static/patches", dicom_name)
+        os.makedirs(patch_folder, exist_ok=True)
+        patch_paths = []
+        for i, patch in enumerate(patches, 1):
+            patch_path = os.path.join(patch_folder, f"patch_{i}.png")
+            patch_img = Image.fromarray(patch)
+            patch_img.save(patch_path)
+            patch_paths.append(patch_path.replace("static\\", "").replace("\\", "/"))
+
+
         # Siamese model predictions
         predictions = {"Normal_Mild": 0.0, "Moderate": 0.0, "Severe": 0.0}
         total_patches = 0
 
         for patch in patches:
-            patch = Image.fromarray(patch)
-            patch_tensor = transform(patch).unsqueeze(0).to(DEVICE)
+            patch_tensor = transform(Image.fromarray(patch)).unsqueeze(0).to(DEVICE)
 
             for _, models in siamese_models.items():
                 for model in models:
                     probs = siamese_base_inference(model, patch_tensor)
-                    
-                    logging.info(f"Prediction for {file.filename} (patch): {probs}")
-                    
+
                     if isinstance(probs, str) and probs == "Uncertain":
                         continue  # Skip this patch if uncertain
                     for cls, prob in probs.items():
@@ -112,7 +122,8 @@ def upload_dcms():
             "file": file.filename,
             "normal_mild": predictions["Normal_Mild"],
             "moderate": predictions["Moderate"],
-            "severe": predictions["Severe"]
+            "severe": predictions["Severe"],
+            "patches": patch_paths
         })
 
     return render_template("predictions.html", predictions=all_predictions)
